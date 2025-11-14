@@ -1,0 +1,5 @@
+{
+  "name": "Coach's Clipboard: Session & Behavior Logger",
+  "description": "A web application for youth sports coaches to plan training sessions, manage drills, and track player attendance and behavior in real-time. It helps coaches and academies monitor player development and identify patterns to improve coaching strategies.",
+  "requestFramePermissions": []
+}
