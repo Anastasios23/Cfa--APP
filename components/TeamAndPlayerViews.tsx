@@ -1,25 +1,44 @@
-
 import React, { useState } from 'react';
-import { Team, Player, AppState, BehaviorStatus } from '../types';
+import { Team, Player, AppState } from '../types';
 import { Card, Button, Modal } from './common';
 import { BEHAVIOR_STATUS_CONFIG } from '../constants';
-import { PlusIcon } from './Icons';
+import { PlusIcon, PencilIcon, UserPlusIcon, TrashIcon } from './Icons';
 
-const PlayerProfile: React.FC<{ player: Player; allData: AppState }> = ({ player, allData }) => {
-  const playerSessions = allData.sessions.filter(s => {
+const PlayerProfile: React.FC<{
+  player: Player;
+  allData: AppState;
+  onEdit: () => void;
+  onDelete: () => void;
+}> = ({ player, allData, onEdit, onDelete }) => {
+  const playerSessions = allData.sessions
+    .filter(s => {
       const attendance = allData.attendances.find(a => a.sessionId === s.id && a.playerId === player.id);
       return attendance?.present;
-  }).sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+    })
+    .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
 
   return (
     <Card>
-      <h3 className="text-xl font-bold text-brand-blue">{player.name}</h3>
-      <p className="text-sm text-gray-500">DOB: {player.dob}</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-xl font-bold text-brand-blue">{player.name}</h3>
+          <p className="text-sm text-gray-500">DOB: {player.dob}</p>
+        </div>
+        <div className="flex space-x-2">
+          <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-200 transition-colors">
+            <PencilIcon className="w-5 h-5" />
+          </button>
+          <button onClick={onDelete} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
+            <TrashIcon className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
       {player.notes && <p className="mt-2 text-gray-700 italic">Notes: {player.notes}</p>}
       
       <div className="mt-4">
         <h4 className="font-semibold">Recent Behavior History</h4>
-        <div className="space-y-2 mt-2">
+        <div className="space-y-2 mt-2 max-h-60 overflow-y-auto">
           {playerSessions.length > 0 ? playerSessions.map(session => {
             const behavior = allData.behaviorEntries.find(b => b.sessionId === session.id && b.playerId === player.id);
             if (!behavior) return null;
@@ -37,15 +56,24 @@ const PlayerProfile: React.FC<{ player: Player; allData: AppState }> = ({ player
   );
 };
 
-const TeamForm: React.FC<{ onSave: (team: Omit<Team, 'id'>) => void; onClose: () => void }> = ({ onSave, onClose }) => {
-  const [name, setName] = useState('');
-  const [ageGroup, setAgeGroup] = useState('');
-  const [coach, setCoach] = useState('');
+const TeamForm: React.FC<{
+  onSave: (team: Omit<Team, 'id'> | Team) => void;
+  onClose: () => void;
+  initialTeam?: Team;
+}> = ({ onSave, onClose, initialTeam }) => {
+  const [name, setName] = useState(initialTeam?.name || '');
+  const [ageGroup, setAgeGroup] = useState(initialTeam?.ageGroup || '');
+  const [coach, setCoach] = useState(initialTeam?.coach || '');
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !ageGroup || !coach) return;
-    onSave({ name, ageGroup, coach });
+    const teamData = { name, ageGroup, coach };
+    if (initialTeam) {
+      onSave({ ...initialTeam, ...teamData });
+    } else {
+      onSave(teamData);
+    }
     onClose();
   };
 
@@ -71,30 +99,138 @@ const TeamForm: React.FC<{ onSave: (team: Omit<Team, 'id'>) => void; onClose: ()
   );
 };
 
+const PlayerForm: React.FC<{
+  onSave: (player: Omit<Player, 'id'> | Player) => void;
+  onClose: () => void;
+  teamId: string;
+  initialPlayer?: Player | null;
+}> = ({ onSave, onClose, teamId, initialPlayer }) => {
+  const [name, setName] = useState(initialPlayer?.name || '');
+  const [dob, setDob] = useState(initialPlayer?.dob || '');
+  const [notes, setNotes] = useState(initialPlayer?.notes || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !dob) return;
+    const playerData = { name, dob, notes, teamId };
+    if (initialPlayer) {
+      onSave({ ...initialPlayer, ...playerData });
+    } else {
+      onSave(playerData);
+    }
+    onClose();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Player Name</label>
+        <input type="text" value={name} onChange={e => setName(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+        <input type="date" value={dob} onChange={e => setDob(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Notes (optional)</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+      </div>
+      <div className="flex justify-end space-x-2 pt-2">
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit">Save Player</Button>
+      </div>
+    </form>
+  );
+};
 
 interface TeamAndPlayerViewsProps {
     allData: AppState;
     addTeam: (team: Omit<Team, 'id'>) => void;
+    updateTeam: (team: Team) => void;
+    addPlayer: (player: Omit<Player, 'id'>) => void;
+    updatePlayer: (player: Player) => void;
+    removePlayer: (playerId: string) => void;
 }
 
-export const TeamAndPlayerViews: React.FC<TeamAndPlayerViewsProps> = ({ allData, addTeam }) => {
+export const TeamAndPlayerViews: React.FC<TeamAndPlayerViewsProps> = ({ 
+  allData, addTeam, updateTeam, addPlayer, updatePlayer, removePlayer 
+}) => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(allData.teams[0] || null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  
   const teamPlayers = allData.players.filter(p => p.teamId === selectedTeam?.id);
 
   const handleSelectTeam = (teamId: string) => {
     setSelectedTeam(allData.teams.find(t => t.id === teamId) || null);
-    setSelectedPlayer(null); // Reset player selection when team changes
+    setSelectedPlayer(null);
+  };
+  
+  const handleSaveTeam = (teamData: Omit<Team, 'id'> | Team) => {
+    if ('id' in teamData) {
+      updateTeam(teamData);
+      if (selectedTeam?.id === teamData.id) {
+        setSelectedTeam(teamData);
+      }
+    } else {
+      addTeam(teamData);
+    }
+  };
+
+  const handleSavePlayer = (playerData: Omit<Player, 'id'> | Player) => {
+    if ('id' in playerData) {
+      updatePlayer(playerData as Player);
+      if (selectedPlayer?.id === playerData.id) {
+        setSelectedPlayer(playerData as Player);
+      }
+    } else {
+      addPlayer(playerData);
+    }
+  };
+  
+  const handleDeletePlayer = () => {
+    if (selectedPlayer) {
+      removePlayer(selectedPlayer.id);
+      setSelectedPlayer(null);
+      setIsConfirmDeleteOpen(false);
+    }
+  };
+
+  const closePlayerModal = () => {
+    setIsPlayerModalOpen(false);
+    setEditingPlayer(null);
+  };
+  
+  const closeTeamModal = () => {
+    setIsTeamModalOpen(false);
+    setEditingTeam(null);
   };
 
   return (
     <div className="p-4 space-y-6">
-       <Modal isOpen={isTeamModalOpen} onClose={() => setIsTeamModalOpen(false)} title="Create New Team">
-        <TeamForm onSave={addTeam} onClose={() => setIsTeamModalOpen(false)} />
+      <Modal isOpen={isTeamModalOpen || !!editingTeam} onClose={closeTeamModal} title={editingTeam ? 'Edit Team' : 'Create New Team'}>
+        <TeamForm onSave={handleSaveTeam} onClose={closeTeamModal} initialTeam={editingTeam!} />
       </Modal>
 
+      <Modal isOpen={isPlayerModalOpen} onClose={closePlayerModal} title={editingPlayer ? 'Edit Player' : 'Add New Player'}>
+        {selectedTeam && <PlayerForm onSave={handleSavePlayer} onClose={closePlayerModal} teamId={selectedTeam.id} initialPlayer={editingPlayer} />}
+      </Modal>
+
+      <Modal isOpen={isConfirmDeleteOpen} onClose={() => setIsConfirmDeleteOpen(false)} title="Confirm Deletion">
+        <div>
+          <p className="text-gray-700">Are you sure you want to remove {selectedPlayer?.name}? This action cannot be undone.</p>
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button variant="secondary" onClick={() => setIsConfirmDeleteOpen(false)}>Cancel</Button>
+            <Button variant="danger" onClick={handleDeletePlayer}>Delete Player</Button>
+          </div>
+        </div>
+      </Modal>
+      
       <div className="flex items-center space-x-2 overflow-x-auto pb-2">
         {allData.teams.map(team => (
           <button
@@ -105,8 +241,8 @@ export const TeamAndPlayerViews: React.FC<TeamAndPlayerViewsProps> = ({ allData,
             {team.name}
           </button>
         ))}
-         <Button onClick={() => setIsTeamModalOpen(true)} variant="secondary">
-              <PlusIcon className="w-5 h-5 inline" />
+        <Button onClick={() => { setEditingTeam(null); setIsTeamModalOpen(true); }} variant="secondary">
+          <PlusIcon className="w-5 h-5 inline" />
         </Button>
       </div>
 
@@ -114,9 +250,19 @@ export const TeamAndPlayerViews: React.FC<TeamAndPlayerViewsProps> = ({ allData,
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
             <Card>
-              <h2 className="text-2xl font-bold text-brand-blue">{selectedTeam.name} Roster</h2>
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-2xl font-bold text-brand-blue">{selectedTeam.name}</h2>
+                <button onClick={() => setEditingTeam(selectedTeam)} className="p-1 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-200 transition-colors">
+                  <PencilIcon className="w-5 h-5"/>
+                </button>
+              </div>
               <p className="text-gray-600 mb-4">{selectedTeam.ageGroup} - Coached by {selectedTeam.coach}</p>
-              <ul className="space-y-2">
+              
+              <Button onClick={() => { setEditingPlayer(null); setIsPlayerModalOpen(true); }} className="w-full mb-4 flex items-center justify-center">
+                <UserPlusIcon className="w-5 h-5 mr-2" /> Add Player
+              </Button>
+              
+              <ul className="space-y-2 max-h-96 overflow-y-auto">
                 {teamPlayers.map(player => (
                   <li key={player.id}>
                     <button
@@ -127,12 +273,18 @@ export const TeamAndPlayerViews: React.FC<TeamAndPlayerViewsProps> = ({ allData,
                     </button>
                   </li>
                 ))}
+                {teamPlayers.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No players on this team yet.</p>}
               </ul>
             </Card>
           </div>
           <div className="md:col-span-2">
             {selectedPlayer ? (
-              <PlayerProfile player={selectedPlayer} allData={allData} />
+              <PlayerProfile 
+                player={selectedPlayer} 
+                allData={allData} 
+                onEdit={() => { setEditingPlayer(selectedPlayer); setIsPlayerModalOpen(true); }}
+                onDelete={() => setIsConfirmDeleteOpen(true)}
+              />
             ) : (
               <Card className="flex items-center justify-center h-full">
                 <p className="text-gray-500">Select a player to see their profile.</p>

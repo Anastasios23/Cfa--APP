@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppState, View, Session, Attendance, BehaviorEntry, Drill, TrainingPlan, Team } from './types';
+import { AppState, View, Session, Attendance, BehaviorEntry, Drill, TrainingPlan, Team, Player } from './types';
 import { MOCK_DATA } from './constants';
 import { ClipboardIcon, HomeIcon, ListBulletIcon, UsersIcon } from './components/Icons';
 import { SessionManager } from './components/SessionManager';
@@ -42,6 +42,33 @@ const App: React.FC = () => {
     setData(prev => ({...prev, teams: [...prev.teams, newTeam]}));
   };
 
+  const updateTeam = (updatedTeam: Team) => {
+    setData(prev => ({
+      ...prev,
+      teams: prev.teams.map(t => t.id === updatedTeam.id ? updatedTeam : t)
+    }));
+  };
+
+  const addPlayer = (player: Omit<Player, 'id'>) => {
+    const newPlayer = { ...player, id: `p${Date.now()}`};
+    setData(prev => ({ ...prev, players: [...prev.players, newPlayer] }));
+  };
+  
+  const updatePlayer = (updatedPlayer: Player) => {
+    setData(prev => ({
+      ...prev,
+      players: prev.players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p)
+    }));
+  };
+  
+  const removePlayer = (playerId: string) => {
+    setData(prev => ({
+      ...prev,
+      players: prev.players.filter(p => p.id !== playerId)
+    }));
+  };
+
+
   const renderView = () => {
     switch (currentView) {
       case 'session':
@@ -62,7 +89,14 @@ const App: React.FC = () => {
                     updatePlan={updatePlan}
                  />;
       case 'teams':
-        return <TeamAndPlayerViews allData={data} addTeam={addTeam} />;
+        return <TeamAndPlayerViews 
+                  allData={data} 
+                  addTeam={addTeam} 
+                  updateTeam={updateTeam} 
+                  addPlayer={addPlayer} 
+                  updatePlayer={updatePlayer}
+                  removePlayer={removePlayer}
+               />;
       case 'dashboard':
       default:
         return <Dashboard onNavigate={setCurrentView} />;
