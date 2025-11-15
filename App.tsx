@@ -18,6 +18,13 @@ const App: React.FC = () => {
       behaviorEntries: [...prevData.behaviorEntries, ...behaviors],
     }));
   };
+
+  const updateSession = (updatedSession: Session) => {
+    setData(prev => ({
+      ...prev,
+      sessions: prev.sessions.map(s => s.id === updatedSession.id ? updatedSession : s),
+    }));
+  };
   
   const addDrill = (drill: Omit<Drill, 'id'>) => {
     const newDrill = { ...drill, id: `d${Date.now()}`};
@@ -78,6 +85,7 @@ const App: React.FC = () => {
                  drills={data.drills}
                  plans={data.trainingPlans}
                  onSessionComplete={handleSessionComplete} 
+                 updateSession={updateSession}
                  addPlan={addPlan}
                  />;
       case 'drills':

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Team, Player, TrainingPlan, Session, Attendance, BehaviorEntry, SessionType, BehaviorStatus, BehaviorTag, Drill, SessionFocus, PlanDrill } from '../types';
 import { Card, Button, Modal } from './common';
 import { BEHAVIOR_STATUS_CONFIG } from '../constants';
 import { CheckCircleIcon, ChevronRightIcon, ArrowPathIcon } from './Icons';
 
 type SessionStage = 'create' | 'active' | 'summary';
+type PlanMethod = 'custom' | 'existing';
 
 const BehaviorTracker: React.FC<{
     player: Player;
@@ -48,11 +49,13 @@ export const SessionManager: React.FC<{
     drills: Drill[];
     plans: TrainingPlan[];
     onSessionComplete: (session: Session, attendances: Attendance[], behaviors: BehaviorEntry[]) => void;
+    updateSession: (session: Session) => void;
     addPlan: (plan: Omit<TrainingPlan, 'id'>) => TrainingPlan;
-}> = ({ teams, players, drills, plans, onSessionComplete, addPlan }) => {
+}> = ({ teams, players, drills, plans, onSessionComplete, updateSession, addPlan }) => {
     const [stage, setStage] = useState<SessionStage>('create');
     const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-    const [sessionFocus, setSessionFocus] = useState<string>(SessionFocus.Dribbling);
+    const [planMethod, setPlanMethod] = useState<PlanMethod>('custom');
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
     const [sessionDrills, setSessionDrills] = useState<PlanDrill[]>([]);
     
     const [currentSession, setCurrentSession] = useState<Session | null>(null);
@@ -60,8 +63,18 @@ export const SessionManager: React.FC<{
     const [behaviors, setBehaviors] = useState<BehaviorEntry[]>([]);
     const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
 
+    const [summaryNotes, setSummaryNotes] = useState('');
+    const [notesSaved, setNotesSaved] = useState(false);
+
     const teamPlayers = useMemo(() => players.filter(p => p.teamId === selectedTeamId), [players, selectedTeamId]);
     
+    useEffect(() => {
+        if (stage === 'summary' && currentSession) {
+            setSummaryNotes(currentSession.notes || '');
+            setNotesSaved(false);
+        }
+    }, [stage, currentSession]);
+
     const handleAddDrillToSession = (drillId: string) => {
       const drill = drills.find(d => d.id === drillId);
       if (drill && !sessionDrills.find(pd => pd.drillId === drillId)) {
@@ -73,13 +86,23 @@ export const SessionManager: React.FC<{
         setSessionDrills(sessionDrills.filter(pd => pd.drillId !== drillId));
     }
 
+    const handleSelectExistingPlan = (planId: string) => {
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+            setSelectedPlanId(planId);
+            setSessionDrills(plan.drills);
+            setPlanMethod('custom');
+        }
+    };
 
     const handleStartSession = () => {
         if (!selectedTeamId || sessionDrills.length === 0) return;
 
+        const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
         const tempPlan: Omit<TrainingPlan, 'id'> = {
             name: `Session Plan - ${new Date().toLocaleDateString()}`,
-            theme: sessionFocus || 'General Session',
+            theme: selectedPlan?.theme || 'Custom Session',
             drills: sessionDrills,
         };
         const newPlan = addPlan(tempPlan);
@@ -90,7 +113,7 @@ export const SessionManager: React.FC<{
             trainingPlanId: newPlan.id,
             dateTime: new Date().toISOString(),
             type: SessionType.Training,
-            focus: sessionFocus,
+            focus: selectedPlan?.theme || 'Custom Session',
         };
 
         setCurrentSession(newSession);
@@ -109,12 +132,21 @@ export const SessionManager: React.FC<{
     const resetSession = () => {
         setStage('create');
         setSelectedTeamId(null);
-        setSessionFocus(SessionFocus.Dribbling);
+        setPlanMethod('custom');
+        setSelectedPlanId(null);
         setSessionDrills([]);
         setCurrentSession(null);
         setAttendances([]);
         setBehaviors([]);
     }
+
+    const handleSaveNotes = () => {
+        if (!currentSession) return;
+        const updatedSession = { ...currentSession, notes: summaryNotes };
+        updateSession(updatedSession);
+        setCurrentSession(updatedSession);
+        setNotesSaved(true);
+    };
 
     const handleToggleAttendance = (playerId: string) => {
         setAttendances(attendances.map(a => a.playerId === playerId ? { ...a, present: !a.present } : a));
@@ -124,9 +156,11 @@ export const SessionManager: React.FC<{
         setBehaviors(behaviors.map(b => b.playerId === playerId ? { ...b, status } : b));
     };
 
+    const isStartDisabled = !selectedTeamId || sessionDrills.length === 0;
+
     if (stage === 'create') {
         return (
-            <Card className="max-w-2xl mx-auto my-8">
+            <Card className="max-w-3xl mx-auto my-8">
                 <h2 className="text-2xl font-bold text-brand-blue mb-6">Create New Session</h2>
                 <div className="space-y-6">
                     <div>
@@ -136,40 +170,59 @@ export const SessionManager: React.FC<{
                             {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">2. Session Focus</label>
-                        <select value={sessionFocus} onChange={e => setSessionFocus(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-blue focus:ring-brand-blue">
-                             {Object.values(SessionFocus).map(f => <option key={f} value={f}>{f}</option>)}
-                        </select>
+                    
+                    <div className="border-t pt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">2. Choose Session Plan</label>
+                        <div className="flex border border-gray-200 rounded-lg p-1 bg-gray-100">
+                            <button onClick={() => { setPlanMethod('custom'); setSelectedPlanId(null); setSessionDrills([]); }} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${planMethod === 'custom' ? 'bg-brand-blue text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Build Custom Plan</button>
+                            <button onClick={() => setPlanMethod('existing')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${planMethod === 'existing' ? 'bg-brand-blue text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Use Existing Plan</button>
+                        </div>
                     </div>
 
-                    <div className="border-t pt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">3. Build Session Plan</label>
-                      <div className="space-y-2 p-2 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
-                          <h4 className="font-semibold text-sm text-gray-800">Selected Drills ({sessionDrills.length})</h4>
-                          {sessionDrills.map(pd => {
-                              const drill = drills.find(d => d.id === pd.drillId);
-                              return <div key={pd.drillId} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
-                                  <span>{drill?.name}</span>
-                                  <button type="button" onClick={() => handleRemoveDrillFromSession(pd.drillId)} className="text-red-500 text-xs font-semibold">REMOVE</button>
-                              </div>
-                          })}
-                          {sessionDrills.length === 0 && <p className="text-xs text-gray-500 text-center py-2">Add drills from the list below.</p>}
-                      </div>
-                      
-                      <div className="space-y-2 mt-2 max-h-48 overflow-y-auto border rounded-md">
-                          {drills.map(drill => (
-                              <div key={drill.id} className="flex justify-between items-center p-2 border-b">
-                                  <div>
-                                      <p className="font-semibold">{drill.name}</p>
-                                      <p className="text-xs text-gray-500">{drill.category} - {drill.duration} min</p>
+                    {planMethod === 'custom' && (
+                         <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-gray-800">Customize Drills</h3>
+                          <div className="space-y-2 p-2 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+                              <h4 className="font-semibold text-sm text-gray-800">Selected Drills ({sessionDrills.length})</h4>
+                              {sessionDrills.map(pd => {
+                                  const drill = drills.find(d => d.id === pd.drillId);
+                                  return <div key={pd.drillId} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                                      <span>{drill?.name}</span>
+                                      <button type="button" onClick={() => handleRemoveDrillFromSession(pd.drillId)} className="text-red-500 text-xs font-semibold">REMOVE</button>
                                   </div>
-                                  <Button type="button" variant="secondary" onClick={() => handleAddDrillToSession(drill.id)} disabled={!selectedTeamId || !!sessionDrills.find(pd => pd.drillId === drill.id)}>Add</Button>
-                              </div>
-                          ))}
-                      </div>
-                    </div>
-                    <Button onClick={handleStartSession} disabled={!selectedTeamId || sessionDrills.length === 0} className="w-full">Start Session</Button>
+                              })}
+                              {sessionDrills.length === 0 && <p className="text-xs text-gray-500 text-center py-2">Add drills from the list below.</p>}
+                          </div>
+                          
+                          <div className="space-y-2 mt-2 max-h-48 overflow-y-auto border rounded-md">
+                              {drills.map(drill => (
+                                  <div key={drill.id} className="flex justify-between items-center p-2 border-b">
+                                      <div>
+                                          <p className="font-semibold">{drill.name}</p>
+                                          <p className="text-xs text-gray-500">{drill.category} - {drill.duration} min</p>
+                                      </div>
+                                      <Button type="button" variant="secondary" onClick={() => handleAddDrillToSession(drill.id)} disabled={!selectedTeamId || !!sessionDrills.find(pd => pd.drillId === drill.id)}>Add</Button>
+                                  </div>
+                              ))}
+                          </div>
+                        </div>
+                    )}
+                    
+                    {planMethod === 'existing' && (
+                        <div className="space-y-2">
+                            <select 
+                                onChange={e => handleSelectExistingPlan(e.target.value)} 
+                                defaultValue="" 
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-blue focus:ring-brand-blue"
+                            >
+                                <option value="" disabled>Select a plan to load and customize</option>
+                                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                            <p className="text-sm text-center text-gray-500 pt-2">Selecting a plan will load its drills into the custom builder for you to modify.</p>
+                        </div>
+                    )}
+
+                    <Button onClick={handleStartSession} disabled={isStartDisabled} className="w-full">Start Session</Button>
                 </div>
             </Card>
         );
@@ -216,7 +269,7 @@ export const SessionManager: React.FC<{
             <Card className="max-w-2xl mx-auto my-8 text-center">
                 <CheckCircleIcon className="w-16 h-16 text-status-green mx-auto mb-4"/>
                 <h2 className="text-2xl font-bold text-brand-blue mb-2">Session Complete!</h2>
-                <p className="text-gray-600 mb-4">Attendance: {presentCount} / {totalCount} players</p>
+                <p className="text-gray-600">Attendance: {presentCount} / {totalCount} players</p>
                 <div className="text-left space-y-2 my-4">
                     <h3 className="font-semibold">Behavior Summary:</h3>
                     {behaviors.map(b => {
@@ -229,6 +282,22 @@ export const SessionManager: React.FC<{
                             </div>
                         )
                     })}
+                </div>
+                 <div className="text-left space-y-2 my-6">
+                    <h3 className="font-semibold">Session Notes</h3>
+                    <textarea
+                        value={summaryNotes}
+                        onChange={e => {
+                            setSummaryNotes(e.target.value);
+                            setNotesSaved(false);
+                        }}
+                        rows={4}
+                        placeholder="Add notes about the session..."
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-blue focus:ring-brand-blue"
+                    />
+                    <Button onClick={handleSaveNotes} disabled={notesSaved}>
+                        {notesSaved ? 'Notes Saved!' : 'Save Notes'}
+                    </Button>
                 </div>
                 <Button onClick={resetSession}>
                    <ArrowPathIcon className="w-5 h-5 inline mr-2"/> New Session

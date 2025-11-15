@@ -57,7 +57,7 @@ export const MOCK_DATA: AppState = {
     { id: 'tp2', name: 'U8 Competitive Intro', theme: '1v1 and respect in duels', drills: [{ drillId: 'd1', duration: 10 }, { drillId: 'd3', duration: 15 }] },
   ],
   sessions: [
-    { id: 's1', teamId: 't1', dateTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), type: SessionType.Training, focus: 'Dribbling', trainingPlanId: 'tp1' }
+    { id: 's1', teamId: 't1', dateTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), type: SessionType.Training, focus: 'Dribbling', trainingPlanId: 'tp1', notes: 'Great energy from the team today. Everyone was focused during the dribbling drills.' }
   ],
   behaviorEntries: [
     { sessionId: 's1', playerId: 'p1', status: BehaviorStatus.Green, tags: [BehaviorTag.Effort] },
