@@ -1,70 +1,97 @@
+// ============================================
+// USER ROLES
+// ============================================
+export enum UserRole {
+  Coach = "Coach",
+  HeadCoach = "HeadCoach",
+  Admin = "Admin",
+}
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  // Note: For now, all users have the same access to everything
+  // Future: Can be extended with permissions and team assignments
+}
+
+// ============================================
+// CORE ENTITIES
+// ============================================
+
+// Team: A group of players managed by coach(es)
 export interface Team {
   id: string;
   name: string;
   ageGroup: string;
-  coach: string;
+  coach: string; // Coach name or ID
 }
 
+// Player: An individual athlete in a team
 export interface Player {
   id: string;
   name: string;
-  teamId: string;
+  teamId: string; // FK: Belongs to a Team
   dob: string;
   notes: string;
 }
 
 export enum SessionType {
-  Training = 'Training',
-  Match = 'Match',
-  Event = 'Event',
+  Training = "Training",
+  Match = "Match",
+  Event = "Event",
 }
 
+// Session: A training session or match for a team
 export interface Session {
   id: string;
-  teamId: string;
+  teamId: string; // FK: Belongs to a Team
   dateTime: string;
   type: SessionType;
   focus: string;
-  trainingPlanId: string;
+  trainingPlanId: string; // FK: Can reference a Training Plan
   notes?: string;
 }
 
 export enum BehaviorStatus {
-  None = 'None',
-  Green = 'Green',
-  Yellow = 'Yellow',
-  Red = 'Red',
+  None = "None",
+  Green = "Green",
+  Yellow = "Yellow",
+  Red = "Red",
 }
 
 export enum BehaviorTag {
-  Listening = 'Listening',
-  Respect = 'Respect',
-  Effort = 'Effort',
-  Aggression = 'Aggression',
-  Distraction = 'Distraction',
+  Listening = "Listening",
+  Respect = "Respect",
+  Effort = "Effort",
+  Aggression = "Aggression",
+  Distraction = "Distraction",
 }
 
+// Behavior Record: Player behavior during a specific session
+// PK: (sessionId, playerId)
 export interface BehaviorEntry {
-  sessionId: string;
-  playerId: string;
+  sessionId: string; // FK: Belongs to a Session
+  playerId: string; // FK: Belongs to a Player
   status: BehaviorStatus;
   tags: BehaviorTag[];
   note?: string;
 }
 
 export interface Attendance {
-  sessionId: string;
-  playerId: string;
+  sessionId: string; // FK: Belongs to a Session
+  playerId: string; // FK: Belongs to a Player
   present: boolean;
 }
 
 export enum DrillCategory {
-  Technical = 'Technical',
-  Physical = 'Physical',
-  Social = 'Social/Values',
+  Technical = "Technical",
+  Physical = "Physical",
+  Social = "Social/Values",
 }
 
+// Drill: A reusable training drill/exercise
 export interface Drill {
   id: string;
   name: string;
@@ -79,11 +106,13 @@ export interface Drill {
   instructions: string;
 }
 
+// PlanDrill: Association between a Training Plan and a Drill
 export interface PlanDrill {
-  drillId: string;
+  drillId: string; // FK: References a Drill
   duration: number;
 }
 
+// Training Plan: A structured plan containing multiple drills
 export interface TrainingPlan {
   id: string;
   name: string;
@@ -92,6 +121,7 @@ export interface TrainingPlan {
 }
 
 export type AppState = {
+  users?: User[]; // Optional: For future authentication/user management
   teams: Team[];
   players: Player[];
   sessions: Session[];
@@ -101,15 +131,15 @@ export type AppState = {
   trainingPlans: TrainingPlan[];
 };
 
-export type View = 'dashboard' | 'session' | 'drills' | 'plans' | 'teams';
+export type View = "dashboard" | "session" | "drills" | "plans" | "teams";
 
 export enum SessionFocus {
-  Dribbling = 'Dribbling',
-  Passing = 'Passing',
-  Shooting = 'Shooting',
-  Defending = 'Defending',
-  Coordination = 'Coordination',
-  Teamwork = 'Teamwork',
-  Values = 'Social/Values',
-  General = 'General Fitness',
+  Dribbling = "Dribbling",
+  Passing = "Passing",
+  Shooting = "Shooting",
+  Defending = "Defending",
+  Coordination = "Coordination",
+  Teamwork = "Teamwork",
+  Values = "Social/Values",
+  General = "General Fitness",
 }
